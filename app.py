@@ -5,7 +5,7 @@ from CoolProp.CoolProp import PropsSI
 import matplotlib.ticker as ticker
 from datetime import datetime
 
-st.set_page_config(page_title="Chiller Diagnostic Report", layout="wide")
+st.set_page_config(page_title="Chiller Diagnostic Pro", layout="wide")
 
 st.title("❄️ Diagnostica Ciclo Frigo Professionale")
 
@@ -39,8 +39,11 @@ if submit:
         h4 = PropsSI('H', 'P', p_cond*1000, 'T', (t_sat_cond+273.15) - subcool, gas)/1000
         h5 = h4
 
+        # Titolo (X) nel punto 5
+        x5 = PropsSI('Q', 'P', p_evap*1000, 'H', h5*1000, gas)
+
         # --- BOX DATI ESTERNO ---
-        st.info(f"**REPORT:** {ora_attuale} | **GAS:** {gas} | **P.Evap:** {p_evap} kPa | **P.Cond:** {p_cond} kPa")
+        st.info(f"**REPORT:** {ora_attuale} | **GAS:** {gas} | **FLASH GAS (Punto 5):** {x5*100:.1f}%")
 
         # --- FIGURA ---
         fig, ax = plt.subplots(figsize=(12, 8))
@@ -56,8 +59,14 @@ if submit:
         ax.plot(h_liq, p_plot, 'k-', lw=1.8, alpha=0.8)
         ax.plot(h_vap, p_plot, 'k-', lw=1.8, alpha=0.8)
 
-        # --- LINEE ISOBARE E ISOTERME DI SFONDO ---
-        # Isoterme (T costante)
+        # --- LINEE DI TITOLO (X) ---
+        for x in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]:
+            h_x = [PropsSI('H', 'T', t, 'Q', x, gas)/1000 for t in T_plot]
+            ax.plot(h_x, p_plot, 'k--', alpha=0.1, lw=0.6)
+            if x == 0.1 or x == 0.5 or x == 0.9:
+                ax.text(h_x[10], p_plot[10], f"x={x}", fontsize=7, alpha=0.3)
+
+        # --- LINEE ISOTERME (T) ---
         for temp in np.arange(-20, 100, 20):
             try:
                 T_k = temp + 273.15
@@ -66,10 +75,6 @@ if submit:
                     h_iso = [PropsSI('H', 'P', p, 'T', T_k, gas)/1000 for p in p_iso]
                     ax.plot(h_iso, p_iso/1000, 'g-', alpha=0.1, lw=0.6)
             except: pass
-
-        # Isobare (P costante) principali
-        ax.axhline(y=p_evap, color='blue', linestyle='--', alpha=0.1, lw=0.8)
-        ax.axhline(y=p_cond, color='red', linestyle='--', alpha=0.1, lw=0.8)
 
         # --- DISEGNO CICLO ---
         # Compressione/Condensazione (ROSSO)
@@ -83,16 +88,12 @@ if submit:
         ax.set_xlim(min(h_ciclo) - delta_h*0.4, max(h_ciclo) + delta_h*0.4)
         ax.set_ylim(p_evap*0.6, p_cond*1.6)
 
-        # --- ETICHETTE DATI NEI 4 PUNTI ---
-        # Punto 1: Aspirazione
+        # --- ETICHETTE DATI ---
         ax.text(h1, p_evap, f" 1. Aspirazione\n {t_asp}°C / {p_evap}kPa", color='darkblue', fontweight='bold', va='top', ha='left', fontsize=9)
-        # Punto 2: Scarico
         ax.text(h2, p_cond, f" 2. Scarico\n {t_scarico}°C / {p_cond}kPa", color='darkred', fontweight='bold', va='bottom', ha='left', fontsize=9)
-        # Punto 4: Uscita Condensatore
         t_liq_out = t_sat_cond - subcool
         ax.text(h4, p_cond, f"4. Liquido Out \n{t_liq_out:.1f}°C / {p_cond}kPa ", color='darkred', fontweight='bold', ha='right', va='bottom', fontsize=9)
-        # Punto 5: Ingresso Evaporatore
-        ax.text(h5, p_evap, f"5. Espansione \n{t_sat_evap:.1f}°C / {p_evap}kPa ", color='darkblue', fontweight='bold', ha='right', va='top', fontsize=9)
+        ax.text(h5, p_evap, f"5. Ingresso Evap \n{t_sat_evap:.1f}°C / {p_evap}kPa \n(Gas: {x5*100:.0f}%)", color='darkblue', fontweight='bold', ha='right', va='top', fontsize=9)
 
         ax.set_yscale('log')
         ax.yaxis.set_major_formatter(ticker.ScalarFormatter())
