@@ -39,69 +39,54 @@ if submit:
         h4 = PropsSI('H', 'P', p_cond*1000, 'T', (t_sat_cond+273.15) - subcool, gas)/1000
         h5 = h4
 
+        # --- BOX DATI ESTERNO (Sostituisce la legenda interna) ---
+        st.info(f"**REPORT GENERATO:** {ora_attuale}  |  **GAS:** {gas}  |  **P.Evap:** {p_evap} kPa  |  **P.Cond:** {p_cond} kPa  |  **T.Scarico:** {t_scarico}°C")
+
         # --- FIGURA ---
-        fig, ax = plt.subplots(figsize=(12, 8))
+        fig, ax = plt.subplots(figsize=(12, 7))
         
         # Campana di saturazione
         tc = PropsSI('Tcrit', gas)
-        # Generiamo la campana su un range più ampio per lo sfondo
         T_range = np.linspace(230, tc - 0.5, 100)
         h_liq = [PropsSI('H', 'T', t, 'Q', 0, gas)/1000 for t in T_range]
         h_vap = [PropsSI('H', 'T', t, 'Q', 1, gas)/1000 for t in T_range]
         p_range = [PropsSI('P', 'T', t, 'Q', 0, gas)/1000 for t in T_range]
         
-        ax.plot(h_liq, p_range, 'k-', lw=1.5, alpha=0.6)
-        ax.plot(h_vap, p_range, 'k-', lw=1.5, alpha=0.6)
+        ax.plot(h_liq, p_range, 'k-', lw=1.2, alpha=0.4)
+        ax.plot(h_vap, p_range, 'k-', lw=1.2, alpha=0.4)
         
         # Sfondi zone
-        ax.fill_betweenx(p_range, 0, h_liq, color='skyblue', alpha=0.05)
-        ax.fill_betweenx(p_range, h_liq, h_vap, color='lightgray', alpha=0.05)
-        ax.fill_betweenx(p_range, h_vap, max(h_vap)+500, color='coral', alpha=0.05)
+        ax.fill_betweenx(p_range, 0, h_liq, color='skyblue', alpha=0.03)
+        ax.fill_betweenx(p_range, h_liq, h_vap, color='lightgray', alpha=0.03)
+        ax.fill_betweenx(p_range, h_vap, max(h_vap)+500, color='coral', alpha=0.03)
 
         # --- DISEGNO CICLO ---
         # Compressione/Condensazione (ROSSO)
         ax.plot([h1, h2], [p_evap, p_cond], color='red', lw=4, marker='o', markersize=8)
-        ax.plot([h2, h4], [p_cond, p_cond], color='red', lw=4, marker='o', markersize=8, label='Alta Pressione (Scarico/Cond)')
+        ax.plot([h2, h4], [p_cond, p_cond], color='red', lw=4, marker='o', markersize=8)
         
         # Espansione/Evaporazione (BLU)
         ax.plot([h4, h5], [p_cond, p_evap], color='blue', lw=4, marker='o', markersize=8)
-        ax.plot([h5, h1], [p_evap, p_evap], color='blue', lw=4, marker='o', markersize=8, label='Bassa Pressione (Evap/Asp)')
+        ax.plot([h5, h1], [p_evap, p_evap], color='blue', lw=4, marker='o', markersize=8)
 
         # --- ZOOM DINAMICO ---
-        # Calcoliamo i limiti basandoci sui punti del ciclo con un margine del 15%
-        h_min, h_max = min([h1, h2, h4, h5]), max([h1, h2, h4, h5])
-        p_min, p_max = min([p_evap, p_cond]), max([p_evap, p_cond])
-        
-        ax.set_xlim(h_min - (h_max-h_min)*0.2, h_max + (h_max-h_min)*0.2)
-        ax.set_ylim(p_min * 0.7, p_max * 1.4) # Scala logaritmica: margine proporzionale
+        h_points = [h1, h2, h4, h5]
+        p_points = [p_evap, p_cond]
+        ax.set_xlim(min(h_points)*0.95, max(h_points)*1.05)
+        ax.set_ylim(min(p_points)*0.8, max(p_points)*1.25)
 
-        # --- ETICHETTE DATI ---
-        ax.text(h1, p_evap, f"  {t_asp}°C\n  {p_evap}kPa", color='darkblue', fontweight='bold', va='top')
-        ax.text(h2, p_cond, f"  {t_scarico}°C\n  {p_cond}kPa", color='darkred', fontweight='bold', va='bottom')
+        # --- ETICHETTE DATI SUI PUNTI ---
+        # Collocamento ottimizzato per evitare sovrapposizioni
+        ax.text(h1, p_evap, f"  {t_asp}°C\n  {p_evap}kPa", color='darkblue', fontweight='bold', va='top', ha='left')
+        ax.text(h2, p_cond, f"  {t_scarico}°C\n  {p_cond}kPa", color='darkred', fontweight='bold', va='bottom', ha='left')
         ax.text(h4, p_cond, f"{(t_sat_cond-subcool):.1f}°C  \n{p_cond}kPa  ", color='darkred', fontweight='bold', ha='right', va='bottom')
         ax.text(h5, p_evap, f"{t_sat_evap:.1f}°C  \n{p_evap}kPa  ", color='darkblue', fontweight='bold', ha='right', va='top')
-
-        # --- INFO BOX ---
-        testo_legenda = (
-            f"DATA: {ora_attuale}\n"
-            f"GAS: {gas}\n"
-            f"P. Evap: {p_evap} kPa\n"
-            f"P. Cond: {p_cond} kPa\n"
-            f"T. Asp: {t_asp} °C\n"
-            f"T. Scarico: {t_scarico} °C\n"
-            f"Sottoraffr: {subcool} K\n"
-            f"T. H2O Out: {t_acqua_out} °C"
-        )
-        ax.text(0.02, 0.96, testo_legenda, transform=ax.transAxes, verticalalignment='top',
-                bbox=dict(boxstyle='round', facecolor='white', alpha=0.9, edgecolor='gray'),
-                fontsize=9, family='monospace')
 
         ax.set_yscale('log')
         ax.yaxis.set_major_formatter(ticker.ScalarFormatter())
         ax.set_xlabel("Entalpia [kJ/kg]")
         ax.set_ylabel("Pressione [kPaA]")
-        ax.grid(True, which="both", alpha=0.2)
-        ax.legend(loc='lower right', fontsize='small')
+        ax.grid(True, which="both", alpha=0.1)
         
         st.pyplot(fig)
 
