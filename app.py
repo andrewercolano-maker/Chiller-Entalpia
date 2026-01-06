@@ -3,16 +3,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from CoolProp.CoolProp import PropsSI
 import matplotlib.ticker as ticker
+from datetime import datetime
 
-# Configurazione pagina
-st.set_page_config(page_title="Chiller Diagnostic Tool", layout="wide")
+st.set_page_config(page_title="Chiller Diagnostic Report", layout="wide")
 
-st.title("❄️ Analisi Professionale Chiller")
-st.write("Diagnostica termodinamica avanzata per impianti di refrigerazione")
+st.title("❄️ Diagnostica Ciclo Frigo")
 
 # --- SIDEBAR INPUT ---
 with st.sidebar:
-    st.header("⚙️ Dati Operativi")
+    st.header("⚙️ Dati di Campo")
     lista_gas = ["R134a", "R1234ze", "R513A", "R514A", "R410A", "R32", "R1233zd"]
     gas = st.selectbox("Refrigerante", lista_gas)
     
@@ -23,88 +22,93 @@ with st.sidebar:
     subcool = st.number_input("Sottoraffreddamento (K)", value=8.7)
     t_acqua_out = st.number_input("Temp. Uscita Acqua Evap. (°C)", value=9.7)
     
-    submit = st.button("ESEGUI ANALISI")
+    submit = st.button("ANALIZZA")
 
 if submit:
     try:
-        # --- CALCOLI TERMODINAMICI ---
+        # Orario analisi
+        ora_attuale = datetime.now().strftime("%d/%m/%Y %H:%M")
+
+        # --- CALCOLI ---
         t_sat_evap = PropsSI('T', 'P', p_evap*1000, 'Q', 1, gas) - 273.15
         t_sat_cond = PropsSI('T', 'P', p_cond*1000, 'Q', 0, gas) - 273.15
-        
-        # Punti principali (kJ/kg)
-        h1 = PropsSI('H', 'P', p_evap*1000, 'T', t_asp+273.15, gas)/1000 
-        h2 = PropsSI('H', 'P', p_cond*1000, 'T', t_scarico+273.15, gas)/1000 
-        s1 = PropsSI('S', 'P', p_evap*1000, 'T', t_asp+273.15, gas) 
-        h2s = PropsSI('H', 'P', p_cond*1000, 'S', s1, gas)/1000 
-        
-        h4 = PropsSI('H', 'P', p_cond*1000, 'T', (t_sat_cond+273.15) - subcool, gas)/1000
-        h5 = h4 
-        
-        # KPI Performance
-        cop = (h1 - h5) / (h2 - h1)
-        rend_isen = (h2s - h1) / (h2 - h1) * 100
         approach = t_acqua_out - t_sat_evap
         disch_sh = t_scarico - t_sat_cond
 
-        # --- INTERFACCIA RISULTATI ---
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric("COP", f"{cop:.2f}")
-        m2.metric("Efficienza Isentropica", f"{rend_isen:.1f} %")
-        m3.metric("Approach", f"{approach:.2f} K")
-        m4.metric("Sottoraffreddamento", f"{subcool:.1f} K")
+        # Punti Ciclo (Entalpia kJ/kg)
+        h1 = PropsSI('H', 'P', p_evap*1000, 'T', t_asp+273.15, gas)/1000
+        h2 = PropsSI('H', 'P', p_cond*1000, 'T', t_scarico+273.15, gas)/1000
+        h4 = PropsSI('H', 'P', p_cond*1000, 'T', (t_sat_cond+273.15) - subcool, gas)/1000
+        h5 = h4
 
-        # Diagnosi tecnica
-        st.subheader("📋 Esito Diagnostica")
-        if approach > 3.5: 
-            st.error("❌ Efficienza evaporatore bassa. Possibile sporcamento scambiatore o scarsa portata acqua.")
-        elif approach < 0.3:
-            st.warning("⚠️ Valore approach sospetto. Verificare taratura sonde temperatura.")
-        else:
-            st.success("✅ Scambio termico all'evaporatore ottimale.")
-
-        if subcool < 4.0: 
-            st.error("❌ Sottoraffreddamento basso. Possibile scarsità di refrigerante nell'impianto.")
-        elif subcool > 12.0:
-            st.warning("⚠️ Sottoraffreddamento elevato. Possibile eccesso di carica o allagamento condensatore.")
-
-        if disch_sh < 15.0: 
-            st.error("🚨 ATTENZIONE: Surriscaldamento allo scarico pericoloso. Rischio di trascinamento liquido al compressore!")
-
-        # --- GRAFICO AVANZATO ---
-        fig, ax = plt.subplots(figsize=(12, 8))
+        # --- GRAFICO ---
+        fig, ax = plt.subplots(figsize=(12, 9))
         
-        # Zone e Campana
+        # Campana e Zone
         tc = PropsSI('Tcrit', gas)
-        pc = PropsSI('Pcrit', gas)
         T_range = np.linspace(235, tc - 0.5, 100)
         h_liq = [PropsSI('H', 'T', t, 'Q', 0, gas)/1000 for t in T_range]
         h_vap = [PropsSI('H', 'T', t, 'Q', 1, gas)/1000 for t in T_range]
         p_range = [PropsSI('P', 'T', t, 'Q', 0, gas)/1000 for t in T_range]
         
-        ax.fill_betweenx(p_range, 0, h_liq, color='skyblue', alpha=0.1, label='Zona Liquido')
-        ax.fill_betweenx(p_range, h_liq, h_vap, color='lightgray', alpha=0.1, label='Saturazione')
-        ax.fill_betweenx(p_range, h_vap, max(h_vap)+300, color='coral', alpha=0.1, label='Zona Vapore')
+        ax.fill_betweenx(p_range, 0, h_liq, color='skyblue', alpha=0.1)
+        ax.fill_betweenx(p_range, h_liq, h_vap, color='lightgray', alpha=0.1)
+        ax.fill_betweenx(p_range, h_vap, max(h_vap)+400, color='coral', alpha=0.1)
 
-        # Linee di Titolo e Isentropiche
-        for x in [0.2, 0.4, 0.6, 0.8]:
+        # Linee di riferimento (Titolo e Isoterme)
+        for x in np.arange(0.2, 1.0, 0.2):
             h_x = [PropsSI('H', 'T', t, 'Q', x, gas)/1000 for t in T_range]
-            ax.plot(h_x, p_range, 'k:', alpha=0.15, lw=0.8)
+            ax.plot(h_x, p_range, 'k:', alpha=0.1, lw=0.7)
 
-        # Ciclo
-        p_ciclo = [p_evap, p_cond, p_cond, p_evap, p_evap]
-        h_ciclo = [h1, h2, h4, h5, h1]
-        ax.plot(h_ciclo, p_ciclo, 'bo-', lw=3, markersize=8, label="Ciclo Frigo")
-        
-        # Estetica assi
+        # --- DISEGNO CICLO CON COLORI RICHIESTI ---
+        # 1. Compressione (1->2) ROSSA
+        ax.plot([h1, h2], [p_evap, p_cond], color='red', lw=4, marker='o', markersize=8, label='Compressione/Condensazione')
+        # 2. Condensazione (2->4) ROSSA
+        ax.plot([h2, h4], [p_cond, p_cond], color='red', lw=4, marker='o', markersize=8)
+        # 3. Espansione (4->5) BLU
+        ax.plot([h4, h5], [p_cond, p_evap], color='blue', lw=4, marker='o', markersize=8, label='Espansione/Evaporazione')
+        # 4. Evaporazione (5->1) BLU
+        ax.plot([h5, h1], [p_evap, p_evap], color='blue', lw=4, marker='o', markersize=8)
+
+        # --- ETICHETTE DATI SUI PUNTI ---
+        ax.text(h1, p_evap, f"  {t_asp}°C\n  {p_evap}kPa", color='darkblue', fontweight='bold', va='bottom')
+        ax.text(h2, p_cond, f"  {t_scarico}°C\n  {p_cond}kPa", color='darkred', fontweight='bold', va='bottom')
+        ax.text(h4, p_cond, f"{(t_sat_cond-subcool):.1f}°C  \n{p_cond}kPa  ", color='darkred', fontweight='bold', ha='right', va='top')
+        ax.text(h5, p_evap, f"{t_sat_evap:.1f}°C  \n{p_evap}kPa  ", color='darkblue', fontweight='bold', ha='right', va='top')
+
+        # --- LEGENDA DATI INSERITI ---
+        testo_legenda = (
+            f"DATA: {ora_attuale}\n"
+            f"GAS: {gas}\n"
+            f"P. Evap: {p_evap} kPa\n"
+            f"P. Cond: {p_cond} kPa\n"
+            f"T. Asp: {t_asp} °C\n"
+            f"T. Scarico: {t_scarico} °C\n"
+            f"Sottoraffr: {subcool} K\n"
+            f"T. H2O Out: {t_acqua_out} °C"
+        )
+        # Posiziona la legenda in un box nell'angolo
+        ax.text(0.02, 0.98, testo_legenda, transform=ax.transAxes, verticalalignment='top',
+                bbox=dict(boxstyle='round', facecolor='white', alpha=0.8, edgecolor='gray'),
+                fontsize=10, family='monospace')
+
         ax.set_yscale('log')
         ax.yaxis.set_major_formatter(ticker.ScalarFormatter())
         ax.set_xlabel("Entalpia [kJ/kg]")
         ax.set_ylabel("Pressione [kPaA]")
-        ax.grid(True, which="both", alpha=0.2)
-        ax.legend(loc='upper left')
+        ax.grid(True, which="both", alpha=0.1)
+        ax.legend(loc='lower right')
         
         st.pyplot(fig)
 
+        # --- ESITO SECCO ---
+        esito_positivo = (approach <= 3.5) and (subcool >= 4.0 and subcool <= 12.0) and (disch_sh >= 15.0)
+        
+        if esito_positivo:
+            st.success("### ESITO: POSITIVO")
+        else:
+            st.error("### ESITO: NEGATIVO")
+
     except Exception as e:
-        st.error(f"Errore tecnico: {e}. Verificare la coerenza dei dati (es. P alta > P bassa).")
+        st.error(f"Errore: {e}")
         
