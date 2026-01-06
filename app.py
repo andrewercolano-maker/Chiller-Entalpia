@@ -7,7 +7,7 @@ from datetime import datetime
 
 st.set_page_config(page_title="Chiller Diagnostic Report", layout="wide")
 
-st.title("❄️ Diagnostica Ciclo Frigo")
+st.title("❄️ Diagnostica Ciclo Frigo Professionale")
 
 # --- SIDEBAR INPUT ---
 with st.sidebar:
@@ -43,55 +43,67 @@ if submit:
         st.info(f"**REPORT:** {ora_attuale} | **GAS:** {gas} | **P.Evap:** {p_evap} kPa | **P.Cond:** {p_cond} kPa")
 
         # --- FIGURA ---
-        fig, ax = plt.subplots(figsize=(12, 7))
+        fig, ax = plt.subplots(figsize=(12, 8))
         
         # Campana di saturazione
         tc = PropsSI('Tcrit', gas)
-        # Range di temperatura ampio per vedere la forma della campana
+        pc = PropsSI('Pcrit', gas)
         T_plot = np.linspace(230, tc - 0.5, 100)
         h_liq = [PropsSI('H', 'T', t, 'Q', 0, gas)/1000 for t in T_plot]
         h_vap = [PropsSI('H', 'T', t, 'Q', 1, gas)/1000 for t in T_plot]
         p_plot = [PropsSI('P', 'T', t, 'Q', 0, gas)/1000 for t in T_plot]
         
-        ax.plot(h_liq, p_plot, 'k-', lw=1.5, alpha=0.7)
-        ax.plot(h_vap, p_plot, 'k-', lw=1.5, alpha=0.7)
-        
-        # Sfondi colorati molto tenui
-        ax.fill_betweenx(p_plot, 100, h_liq, color='skyblue', alpha=0.04)
-        ax.fill_betweenx(p_plot, h_liq, h_vap, color='lightgray', alpha=0.04)
-        ax.fill_betweenx(p_plot, h_vap, max(h_vap)+400, color='coral', alpha=0.04)
+        ax.plot(h_liq, p_plot, 'k-', lw=1.8, alpha=0.8)
+        ax.plot(h_vap, p_plot, 'k-', lw=1.8, alpha=0.8)
+
+        # --- LINEE ISOBARE E ISOTERME DI SFONDO ---
+        # Isoterme (T costante)
+        for temp in np.arange(-20, 100, 20):
+            try:
+                T_k = temp + 273.15
+                if T_k < tc:
+                    p_iso = np.logspace(np.log10(min(p_plot)*1000), np.log10(pc*0.9), 50)
+                    h_iso = [PropsSI('H', 'P', p, 'T', T_k, gas)/1000 for p in p_iso]
+                    ax.plot(h_iso, p_iso/1000, 'g-', alpha=0.1, lw=0.6)
+            except: pass
+
+        # Isobare (P costante) principali
+        ax.axhline(y=p_evap, color='blue', linestyle='--', alpha=0.1, lw=0.8)
+        ax.axhline(y=p_cond, color='red', linestyle='--', alpha=0.1, lw=0.8)
 
         # --- DISEGNO CICLO ---
         # Compressione/Condensazione (ROSSO)
-        ax.plot([h1, h2, h4], [p_evap, p_cond, p_cond], color='red', lw=4, marker='o', markersize=7)
+        ax.plot([h1, h2, h4], [p_evap, p_cond, p_cond], color='red', lw=4, marker='o', markersize=8)
         # Espansione/Evaporazione (BLU)
-        ax.plot([h4, h5, h1], [p_cond, p_evap, p_evap], color='blue', lw=4, marker='o', markersize=7)
+        ax.plot([h4, h5, h1], [p_cond, p_evap, p_evap], color='blue', lw=4, marker='o', markersize=8)
 
-        # --- ZOOM BILANCIATO (VIA DI MEZZO) ---
-        # Allarghiamo i margini per vedere la curva della campana a sinistra e a destra
+        # --- ZOOM BILANCIATO ---
         h_ciclo = [h1, h2, h4, h5]
         delta_h = max(h_ciclo) - min(h_ciclo)
-        ax.set_xlim(min(h_ciclo) - delta_h*0.5, max(h_ciclo) + delta_h*0.5)
-        
-        p_ciclo = [p_evap, p_cond]
-        ax.set_ylim(min(p_ciclo)*0.6, max(p_ciclo)*1.5)
+        ax.set_xlim(min(h_ciclo) - delta_h*0.4, max(h_ciclo) + delta_h*0.4)
+        ax.set_ylim(p_evap*0.6, p_cond*1.6)
 
-        # --- ETICHETTE DATI ---
-        ax.text(h1, p_evap, f" {t_asp}°C", color='darkblue', fontweight='bold', va='top')
-        ax.text(h2, p_cond, f" {t_scarico}°C", color='darkred', fontweight='bold', va='bottom')
-        ax.text(h4, p_cond, f"{(t_sat_cond-subcool):.1f}°C ", color='darkred', fontweight='bold', ha='right', va='bottom')
-        ax.text(h5, p_evap, f"{t_sat_evap:.1f}°C ", color='darkblue', fontweight='bold', ha='right', va='top')
+        # --- ETICHETTE DATI NEI 4 PUNTI ---
+        # Punto 1: Aspirazione
+        ax.text(h1, p_evap, f" 1. Aspirazione\n {t_asp}°C / {p_evap}kPa", color='darkblue', fontweight='bold', va='top', ha='left', fontsize=9)
+        # Punto 2: Scarico
+        ax.text(h2, p_cond, f" 2. Scarico\n {t_scarico}°C / {p_cond}kPa", color='darkred', fontweight='bold', va='bottom', ha='left', fontsize=9)
+        # Punto 4: Uscita Condensatore
+        t_liq_out = t_sat_cond - subcool
+        ax.text(h4, p_cond, f"4. Liquido Out \n{t_liq_out:.1f}°C / {p_cond}kPa ", color='darkred', fontweight='bold', ha='right', va='bottom', fontsize=9)
+        # Punto 5: Ingresso Evaporatore
+        ax.text(h5, p_evap, f"5. Espansione \n{t_sat_evap:.1f}°C / {p_evap}kPa ", color='darkblue', fontweight='bold', ha='right', va='top', fontsize=9)
 
         ax.set_yscale('log')
         ax.yaxis.set_major_formatter(ticker.ScalarFormatter())
         ax.set_xlabel("Entalpia [kJ/kg]")
         ax.set_ylabel("Pressione [kPaA]")
-        ax.grid(True, which="both", alpha=0.15)
+        ax.grid(True, which="both", alpha=0.1, linestyle=':')
         
         st.pyplot(fig)
 
         # --- ESITO ---
-        esito_positivo = (approach <= 3.5) and (subcool >= 4.0 and subcool <= 12.0) and (disch_sh >= 15.0)
+        esito_positivo = (approach <= 3.5) and (4.0 <= subcool <= 12.0) and (disch_sh >= 15.0)
         if esito_positivo:
             st.success("### ESITO: POSITIVO")
         else:
