@@ -39,54 +39,54 @@ if submit:
         h4 = PropsSI('H', 'P', p_cond*1000, 'T', (t_sat_cond+273.15) - subcool, gas)/1000
         h5 = h4
 
-        # --- BOX DATI ESTERNO (Sostituisce la legenda interna) ---
-        st.info(f"**REPORT GENERATO:** {ora_attuale}  |  **GAS:** {gas}  |  **P.Evap:** {p_evap} kPa  |  **P.Cond:** {p_cond} kPa  |  **T.Scarico:** {t_scarico}°C")
+        # --- BOX DATI ESTERNO ---
+        st.info(f"**REPORT:** {ora_attuale} | **GAS:** {gas} | **P.Evap:** {p_evap} kPa | **P.Cond:** {p_cond} kPa")
 
         # --- FIGURA ---
         fig, ax = plt.subplots(figsize=(12, 7))
         
         # Campana di saturazione
         tc = PropsSI('Tcrit', gas)
-        T_range = np.linspace(230, tc - 0.5, 100)
-        h_liq = [PropsSI('H', 'T', t, 'Q', 0, gas)/1000 for t in T_range]
-        h_vap = [PropsSI('H', 'T', t, 'Q', 1, gas)/1000 for t in T_range]
-        p_range = [PropsSI('P', 'T', t, 'Q', 0, gas)/1000 for t in T_range]
+        # Range di temperatura ampio per vedere la forma della campana
+        T_plot = np.linspace(230, tc - 0.5, 100)
+        h_liq = [PropsSI('H', 'T', t, 'Q', 0, gas)/1000 for t in T_plot]
+        h_vap = [PropsSI('H', 'T', t, 'Q', 1, gas)/1000 for t in T_plot]
+        p_plot = [PropsSI('P', 'T', t, 'Q', 0, gas)/1000 for t in T_plot]
         
-        ax.plot(h_liq, p_range, 'k-', lw=1.2, alpha=0.4)
-        ax.plot(h_vap, p_range, 'k-', lw=1.2, alpha=0.4)
+        ax.plot(h_liq, p_plot, 'k-', lw=1.5, alpha=0.7)
+        ax.plot(h_vap, p_plot, 'k-', lw=1.5, alpha=0.7)
         
-        # Sfondi zone
-        ax.fill_betweenx(p_range, 0, h_liq, color='skyblue', alpha=0.03)
-        ax.fill_betweenx(p_range, h_liq, h_vap, color='lightgray', alpha=0.03)
-        ax.fill_betweenx(p_range, h_vap, max(h_vap)+500, color='coral', alpha=0.03)
+        # Sfondi colorati molto tenui
+        ax.fill_betweenx(p_plot, 100, h_liq, color='skyblue', alpha=0.04)
+        ax.fill_betweenx(p_plot, h_liq, h_vap, color='lightgray', alpha=0.04)
+        ax.fill_betweenx(p_plot, h_vap, max(h_vap)+400, color='coral', alpha=0.04)
 
         # --- DISEGNO CICLO ---
         # Compressione/Condensazione (ROSSO)
-        ax.plot([h1, h2], [p_evap, p_cond], color='red', lw=4, marker='o', markersize=8)
-        ax.plot([h2, h4], [p_cond, p_cond], color='red', lw=4, marker='o', markersize=8)
-        
+        ax.plot([h1, h2, h4], [p_evap, p_cond, p_cond], color='red', lw=4, marker='o', markersize=7)
         # Espansione/Evaporazione (BLU)
-        ax.plot([h4, h5], [p_cond, p_evap], color='blue', lw=4, marker='o', markersize=8)
-        ax.plot([h5, h1], [p_evap, p_evap], color='blue', lw=4, marker='o', markersize=8)
+        ax.plot([h4, h5, h1], [p_cond, p_evap, p_evap], color='blue', lw=4, marker='o', markersize=7)
 
-        # --- ZOOM DINAMICO ---
-        h_points = [h1, h2, h4, h5]
-        p_points = [p_evap, p_cond]
-        ax.set_xlim(min(h_points)*0.95, max(h_points)*1.05)
-        ax.set_ylim(min(p_points)*0.8, max(p_points)*1.25)
+        # --- ZOOM BILANCIATO (VIA DI MEZZO) ---
+        # Allarghiamo i margini per vedere la curva della campana a sinistra e a destra
+        h_ciclo = [h1, h2, h4, h5]
+        delta_h = max(h_ciclo) - min(h_ciclo)
+        ax.set_xlim(min(h_ciclo) - delta_h*0.5, max(h_ciclo) + delta_h*0.5)
+        
+        p_ciclo = [p_evap, p_cond]
+        ax.set_ylim(min(p_ciclo)*0.6, max(p_ciclo)*1.5)
 
-        # --- ETICHETTE DATI SUI PUNTI ---
-        # Collocamento ottimizzato per evitare sovrapposizioni
-        ax.text(h1, p_evap, f"  {t_asp}°C\n  {p_evap}kPa", color='darkblue', fontweight='bold', va='top', ha='left')
-        ax.text(h2, p_cond, f"  {t_scarico}°C\n  {p_cond}kPa", color='darkred', fontweight='bold', va='bottom', ha='left')
-        ax.text(h4, p_cond, f"{(t_sat_cond-subcool):.1f}°C  \n{p_cond}kPa  ", color='darkred', fontweight='bold', ha='right', va='bottom')
-        ax.text(h5, p_evap, f"{t_sat_evap:.1f}°C  \n{p_evap}kPa  ", color='darkblue', fontweight='bold', ha='right', va='top')
+        # --- ETICHETTE DATI ---
+        ax.text(h1, p_evap, f" {t_asp}°C", color='darkblue', fontweight='bold', va='top')
+        ax.text(h2, p_cond, f" {t_scarico}°C", color='darkred', fontweight='bold', va='bottom')
+        ax.text(h4, p_cond, f"{(t_sat_cond-subcool):.1f}°C ", color='darkred', fontweight='bold', ha='right', va='bottom')
+        ax.text(h5, p_evap, f"{t_sat_evap:.1f}°C ", color='darkblue', fontweight='bold', ha='right', va='top')
 
         ax.set_yscale('log')
         ax.yaxis.set_major_formatter(ticker.ScalarFormatter())
         ax.set_xlabel("Entalpia [kJ/kg]")
         ax.set_ylabel("Pressione [kPaA]")
-        ax.grid(True, which="both", alpha=0.1)
+        ax.grid(True, which="both", alpha=0.15)
         
         st.pyplot(fig)
 
