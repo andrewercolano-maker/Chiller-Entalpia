@@ -6,7 +6,7 @@ import matplotlib.ticker as ticker
 
 st.set_page_config(page_title="Trane-Style Diagnostic", layout="wide")
 
-st.title("🛡️ Chiller Diagnostic Pro (Trane/Carrier Logic)")
+st.title("🛡️ Chiller Diagnostic")
 
 # --- INPUT DATI ---
 with st.sidebar:
