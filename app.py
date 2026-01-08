@@ -8,7 +8,7 @@ st.set_page_config(page_title="Chiller & HP Diagnostic Pro", layout="wide")
 
 st.title("❄️🔥 Analisi Termodinamica Professionale")
 
-# --- SIDEBAR (INALTERATA) ---
+# --- SIDEBAR (Inalterata) ---
 with st.sidebar:
     st.header("⚙️ Configurazione")
     modalita = st.radio("Modalità di Funzionamento", ["Chiller (Raffreddamento)", "Heat Pump (Riscaldamento)"])
@@ -56,17 +56,21 @@ if submit:
         h2 = PropsSI('H', 'P', p_cond*1000, 'T', t_scarico+273.15, gas)/1000
         h4 = PropsSI('H', 'P', p_cond*1000, 'T', (t_sat_cond_calc+273.15) - subcool, gas)/1000
         h5 = h4
+        h3_sat_vap = PropsSI('H', 'P', p_cond*1000, 'Q', 1, gas)/1000
+        h3_sat_liq = PropsSI('H', 'P', p_cond*1000, 'Q', 0, gas)/1000
+        h5_sat_vap = PropsSI('H', 'P', p_evap*1000, 'Q', 1, gas)/1000
+        
         x5 = PropsSI('Q', 'P', p_evap*1000, 'H', h5*1000, gas)
         sh_asp = t_asp - t_sat_evap_calc
+        sh_sca = t_scarico - t_sat_cond_calc
         approach = abs(t_acqua_out - (t_sat_evap_calc if modalita == "Chiller (Raffreddamento)" else t_sat_cond_calc))
 
-        # --- GRAFICO CON CAMPANA REALE (CORRETTO) ---
+        # --- GRAFICO ---
         fig, ax = plt.subplots(figsize=(14, 9))
-        
         t_crit = PropsSI('Tcrit', gas)
         p_crit = PropsSI('Pcrit', gas) / 1000
         
-        # 1. Generazione Campana Arrotondata
+        # 1. Campana Reale
         T_range = np.linspace(233.15, t_crit - 0.1, 300) 
         h_liq = np.array([PropsSI('H', 'T', t, 'Q', 0, gas)/1000 for t in T_range])
         h_vap = np.array([PropsSI('H', 'T', t, 'Q', 1, gas)/1000 for t in T_range])
@@ -75,38 +79,54 @@ if submit:
         ax.plot(h_liq, p_sat, color='#2c3e50', lw=2, zorder=3)
         ax.plot(h_vap, p_sat, color='#2c3e50', lw=2, zorder=3)
 
-        # 2. Aggiunta Isoterme (MODIFICATO: Calcolo stabile H = f(P,T))
+        # Zone Blu/Rossa
+        ax.fill_betweenx(p_sat, 0, h_liq, color='blue', alpha=0.03)
+        ax.fill_betweenx(p_sat, h_vap, h_vap.max()+300, color='red', alpha=0.03)
+
+        # Nome Gas
+        ax.text(0.02, 0.96, f"GAS: {gas}", transform=ax.transAxes, fontsize=12, fontweight='bold', bbox=dict(facecolor='white', alpha=0.8))
+
+        # Isoterme di sfondo
         p_iso_range = np.logspace(np.log10(50), np.log10(p_crit*1.5), 50)
         for temp in range(-20, int(t_crit)+40, 20):
             T_kelvin = temp + 273.15
             h_iso = []
             for p in p_iso_range:
-                try:
-                    h_val = PropsSI('H', 'T', T_kelvin, 'P', p*1000, gas)/1000
-                    h_iso.append(h_val)
-                except:
-                    h_iso.append(np.nan)
-            ax.plot(h_iso, p_iso_range, color='gray', lw=0.5, alpha=0.3)
+                try: h_iso.append(PropsSI('H', 'T', T_kelvin, 'P', p*1000, gas)/1000)
+                except: h_iso.append(np.nan)
+            ax.plot(h_iso, p_iso_range, color='gray', lw=0.5, alpha=0.2)
 
-        # 3. Disegno Ciclo
+        # 2. Ciclo
         ax.plot(np.linspace(h1, h2, 20), np.linspace(p_evap, p_cond, 20), color='#c0392b', lw=4, zorder=10)
         ax.plot([h2, h4], [p_cond, p_cond], color='#e74c3c', lw=4, zorder=10)
         ax.plot([h4, h5], [p_cond, p_evap], color='#2980b9', lw=4, zorder=10)
         ax.plot([h5, h1], [p_evap, p_evap], color='#3498db', lw=4, zorder=10)
 
+        # Etichette Fasi (SH e Subcool)
+        f_style = dict(fontsize=9, fontweight='bold', color='#444444', ha='center')
+        ax.text((h2 + h3_sat_vap)/2, p_cond * 1.15, f"SH SCARICO: {sh_sca:.1f}K", **f_style)
+        ax.text((h4 + h3_sat_liq)/2, p_cond * 1.15, f"SUBCOOL: {subcool:.1f}K", **f_style)
+        ax.text((h1 + h5_sat_vap)/2, p_evap * 0.75, f"SH ASPIRAZIONE: {sh_asp:.1f}K", **f_style)
+
         # Box Dati
         b_style = dict(boxstyle="round,pad=0.3", fc="white", ec="#2c3e50", lw=0.8, alpha=0.9)
         ax.text(h1 + 10, p_evap * 0.8, f"1. ASP\n{t_asp:.1f}°C", bbox=b_style, fontsize=8)
-        ax.text(h2 + 10, p_cond * 1.2, f"2. SCA\n{t_scarico:.1f}°C", bbox=b_style, fontsize=8)
-        ax.text(h4 - 10, p_cond * 1.2, f"4. LIQ\n{(t_sat_cond_calc-subcool):.1f}°C", ha='right', bbox=b_style, fontsize=8)
+        ax.text(h2 + 10, p_cond * 1.25, f"2. SCA\n{t_scarico:.1f}°C", bbox=b_style, fontsize=8)
+        ax.text(h4 - 10, p_cond * 1.25, f"4. LIQ\n{(t_sat_cond_calc-subcool):.1f}°C", ha='right', bbox=b_style, fontsize=8)
         ax.text(h5 - 10, p_evap * 0.8, f"5. INGR\n{t_sat_evap_calc:.1f}°C", ha='right', bbox=b_style, fontsize=8)
 
-        # Formattazione Assi
+        # Fascia Verde Approach
+        p_h2o = PropsSI('P', 'T', t_acqua_out + 273.15, 'Q', 0.5, gas) / 1000
+        p_min_app, p_max_app = sorted([p_evap, p_h2o]) if modalita == "Chiller (Raffreddamento)" else sorted([p_cond, p_h2o])
+        ax.axhspan(p_min_app, p_max_app, color='#2ecc71', alpha=0.2, zorder=1)
+        ax.text((h1+h5)/2, (p_min_app*p_max_app)**0.5, f"APPROACH: {approach:.1f} K", 
+                ha='center', va='center', fontweight='bold', color='#1e8449', fontsize=9,
+                bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', boxstyle='round,pad=0.2'))
+
+        # Formattazione
         ax.set_yscale('log')
         ax.yaxis.set_major_formatter(ticker.ScalarFormatter())
         ax.grid(True, which="both", alpha=0.1, color='gray')
-        
-        # Limiti dinamici basati sul gas per Aspect Ratio reale
         h_min_plot = PropsSI('H', 'T', 253.15, 'Q', 0, gas)/1000 - 50
         h_max_plot = PropsSI('H', 'T', t_crit-10, 'Q', 1, gas)/1000 + 150
         ax.set_xlim(h_min_plot, h_max_plot)
@@ -114,7 +134,7 @@ if submit:
         
         st.pyplot(fig)
 
-        # Metriche
+        # --- RISULTATI ESTERNI (Inalterati) ---
         st.divider()
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Flash Gas", f"{x5*100:.1f} %")
