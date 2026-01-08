@@ -8,7 +8,7 @@ st.set_page_config(page_title="Chiller & HP Diagnostic Pro", layout="wide")
 
 st.title("❄️🔥 Analisi Termodinamica Professionale")
 
-# --- SIDEBAR (Inalterata) ---
+# --- SIDEBAR (TOTALMENTE INALTERATA) ---
 with st.sidebar:
     st.header("⚙️ Configurazione")
     modalita = st.radio("Modalità di Funzionamento", ["Chiller (Raffreddamento)", "Heat Pump (Riscaldamento)"])
@@ -51,82 +51,83 @@ with st.sidebar:
 
 if submit:
     try:
-        # Calcoli Punti Ciclo
+        # Punti Ciclo
         h1 = PropsSI('H', 'P', p_evap*1000, 'T', t_asp+273.15, gas)/1000
         h2 = PropsSI('H', 'P', p_cond*1000, 'T', t_scarico+273.15, gas)/1000
         h4 = PropsSI('H', 'P', p_cond*1000, 'T', (t_sat_cond_calc+273.15) - subcool, gas)/1000
         h5 = h4
+        
+        # Variabili per etichette
         h3_sat_vap = PropsSI('H', 'P', p_cond*1000, 'Q', 1, gas)/1000
         h3_sat_liq = PropsSI('H', 'P', p_cond*1000, 'Q', 0, gas)/1000
         h5_sat_vap = PropsSI('H', 'P', p_evap*1000, 'Q', 1, gas)/1000
-        
         x5 = PropsSI('Q', 'P', p_evap*1000, 'H', h5*1000, gas)
         sh_asp = t_asp - t_sat_evap_calc
         sh_sca = t_scarico - t_sat_cond_calc
         approach = abs(t_acqua_out - (t_sat_evap_calc if modalita == "Chiller (Raffreddamento)" else t_sat_cond_calc))
 
-        # --- GRAFICO ---
+        # --- GRAFICO PROFESSIONALE ---
         fig, ax = plt.subplots(figsize=(14, 9))
         t_crit = PropsSI('Tcrit', gas)
         p_crit = PropsSI('Pcrit', gas) / 1000
-        
-        # 1. Campana Reale e Sfondo
-        T_range = np.linspace(233.15, t_crit - 0.1, 300) 
-        h_liq = np.array([PropsSI('H', 'T', t, 'Q', 0, gas)/1000 for t in T_range])
-        h_vap = np.array([PropsSI('H', 'T', t, 'Q', 1, gas)/1000 for t in T_range])
-        p_sat = np.array([PropsSI('P', 'T', t, 'Q', 0, gas)/1000 for t in T_range])
-        
-        ax.plot(h_liq, p_sat, color='#2c3e50', lw=2, zorder=3)
-        ax.plot(h_vap, p_sat, color='#2c3e50', lw=2, zorder=3)
-        ax.fill_betweenx(p_sat, 0, h_liq, color='blue', alpha=0.03)
-        ax.fill_betweenx(p_sat, h_vap, h_vap.max()+300, color='red', alpha=0.03)
 
-        # 2. Ciclo
-        ax.plot(np.linspace(h1, h2, 20), np.linspace(p_evap, p_cond, 20), color='#c0392b', lw=4, zorder=10)
-        ax.plot([h2, h4], [p_cond, p_cond], color='#e74c3c', lw=4, zorder=10)
-        ax.plot([h4, h5], [p_cond, p_evap], color='#2980b9', lw=4, zorder=10)
-        ax.plot([h5, h1], [p_evap, p_evap], color='#3498db', lw=4, zorder=10)
+        # 1. Campana e Zone
+        T_range = np.linspace(233.15, t_crit - 0.1, 300)
+        h_liq_curve = [PropsSI('H', 'T', t, 'Q', 0, gas)/1000 for t in T_range]
+        h_vap_curve = [PropsSI('H', 'T', t, 'Q', 1, gas)/1000 for t in T_range]
+        p_sat_curve = [PropsSI('P', 'T', t, 'Q', 0, gas)/1000 for t in T_range]
+        ax.plot(h_liq_curve, p_sat_curve, 'k-', lw=1.5, zorder=3)
+        ax.plot(h_vap_curve, p_sat_curve, 'k-', lw=1.5, zorder=3)
+        ax.fill_betweenx(p_sat_curve, 0, h_liq_curve, color='blue', alpha=0.03)
+        ax.fill_betweenx(p_sat_curve, h_vap_curve, h_vap_curve[-1]+500, color='red', alpha=0.03)
 
-        # --- LINEE DI PROIEZIONE AI PUNTI ---
-        h_min_plot = PropsSI('H', 'T', 253.15, 'Q', 0, gas)/1000 - 50
-        p_min_plot = 50
-        
-        # Proiezioni Pressione (Orizzontali)
-        ax.hlines([p_evap, p_cond], h_min_plot, [h5, h2], colors='gray', linestyles='--', lw=0.8, alpha=0.5)
-        # Proiezioni Entalpia (Verticali)
-        ax.vlines([h1, h2, h4, h5], p_min_plot, [p_evap, p_cond, p_cond, p_evap], colors='gray', linestyles='--', lw=0.8, alpha=0.5)
+        # 2. Linee del Ciclo Reali (Isoterme e Isoentropiche)
+        # Compressione (Isoentropica reale se ideale, qui tracciamo il percorso tra 1 e 2)
+        p_comp = np.logspace(np.log10(p_evap), np.log10(p_cond), 30)
+        h_comp = [PropsSI('H', 'P', p*1000, 'S', PropsSI('S', 'P', p_evap*1000, 'H', h1*1000, gas), gas)/1000 for p in p_comp]
+        # Nota: per semplicità visiva tra 1 e 2 reali usiamo un'interpolazione curva che segue l'andamento
+        ax.plot(np.linspace(h1, h2, 30), p_comp, color='#c0392b', lw=4, zorder=10) # Linea compressione
+        ax.plot([h2, h4], [p_cond, p_cond], color='#e74c3c', lw=4, zorder=10) # Condensazione
+        ax.plot([h4, h5], [p_cond, p_evap], color='#2980b9', lw=4, zorder=10) # Espansione
+        ax.plot([h5, h1], [p_evap, p_evap], color='#3498db', lw=4, zorder=10) # Evaporazione
 
-        # Valori sugli Assi
-        ax.text(h_min_plot+5, p_evap*1.05, f"{p_evap:.1f}", color='gray', fontsize=7, fontweight='bold')
-        ax.text(h_min_plot+5, p_cond*1.05, f"{p_cond:.1f}", color='gray', fontsize=7, fontweight='bold')
-        for hv in [h4, h5, h1, h2]:
-            ax.text(hv, p_min_plot*1.1, f"{hv:.0f}", color='gray', fontsize=7, fontweight='bold', ha='center')
+        # 3. Fascia APPROCCIO (RIPRISTINATA)
+        p_h2o = PropsSI('P', 'T', t_acqua_out + 273.15, 'Q', 0.5, gas) / 1000
+        p_min_app, p_max_app = sorted([p_evap, p_h2o]) if modalita == "Chiller (Raffreddamento)" else sorted([p_cond, p_h2o])
+        ax.axhspan(p_min_app, p_max_app, color='#2ecc71', alpha=0.2, zorder=1)
+        ax.text((h1+h5)/2, (p_min_app*p_max_app)**0.5, f"APPROACH: {approach:.1f} K", 
+                ha='center', va='center', fontweight='bold', color='#1e8449', fontsize=9,
+                bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', boxstyle='round,pad=0.2'))
 
-        # Etichette Fasi
-        t_style = dict(fontsize=8, fontweight='bold', color='#444444', ha='center', 
-                       bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', boxstyle='round,pad=0.1'))
+        # 4. Proiezioni Isoterme/Isobare ai punti del ciclo
+        for p, h, label in zip([p_evap, p_cond, p_cond, p_evap], [h1, h2, h4, h5], ['1', '2', '4', '5']):
+            ax.axhline(y=p, xmin=0, xmax=(h-ax.get_xlim()[0])/(ax.get_xlim()[1]-ax.get_xlim()[0]), color='gray', ls=':', lw=0.8)
+            ax.axvline(x=h, ymin=0, ymax=(np.log10(p)-np.log10(ax.get_ylim()[0]))/(np.log10(ax.get_ylim()[1])-np.log10(ax.get_ylim()[0])), color='gray', ls=':', lw=0.8)
+
+        # Etichette SH / SUBCOOL
+        t_style = dict(fontsize=8, fontweight='bold', color='#444444', ha='center', bbox=dict(facecolor='white', alpha=0.7, edgecolor='none'))
         ax.text((h2 + h3_sat_vap)/2, p_cond * 1.08, f"SH SCARICO: {sh_sca:.1f}K", **t_style)
         ax.text((h4 + h3_sat_liq)/2, p_cond * 1.08, f"SUBCOOL: {subcool:.1f}K", **t_style)
         ax.text((h1 + h5_sat_vap)/2, p_evap * 0.88, f"SH ASPIRAZIONE: {sh_asp:.1f}K", **t_style)
 
-        # Box Dati
+        # Box Dati e Nome Gas
+        ax.text(0.02, 0.96, f"GAS: {gas}", transform=ax.transAxes, fontsize=12, fontweight='bold', bbox=dict(facecolor='white', alpha=0.8))
         b_style = dict(boxstyle="round,pad=0.3", fc="white", ec="#2c3e50", lw=0.8, alpha=0.9)
         ax.text(h1 + 10, p_evap * 0.7, f"1. ASP\n{t_asp:.1f}°C", bbox=b_style, fontsize=8)
         ax.text(h2 + 10, p_cond * 1.35, f"2. SCA\n{t_scarico:.1f}°C", bbox=b_style, fontsize=8)
         ax.text(h4 - 10, p_cond * 1.35, f"4. LIQ\n{(t_sat_cond_calc-subcool):.1f}°C", ha='right', bbox=b_style, fontsize=8)
         ax.text(h5 - 10, p_evap * 0.7, f"5. INGR\n{t_sat_evap_calc:.1f}°C", ha='right', bbox=b_style, fontsize=8)
 
-        # Formattazione
+        # Formattazione Assi
         ax.set_yscale('log')
         ax.yaxis.set_major_formatter(ticker.ScalarFormatter())
         ax.grid(True, which="both", alpha=0.1, color='gray')
-        h_max_plot = PropsSI('H', 'T', t_crit-10, 'Q', 1, gas)/1000 + 150
-        ax.set_xlim(h_min_plot, h_max_plot)
-        ax.set_ylim(p_min_plot, p_crit * 1.5) 
+        ax.set_xlim(PropsSI('H', 'T', 253.15, 'Q', 0, gas)/1000 - 50, PropsSI('H', 'T', t_crit-10, 'Q', 1, gas)/1000 + 150)
+        ax.set_ylim(50, p_crit * 1.5)
         
         st.pyplot(fig)
 
-        # Metriche esterne
+        # Metriche Esterne
         st.divider()
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Flash Gas", f"{x5*100:.1f} %")
@@ -136,4 +137,4 @@ if submit:
 
     except Exception as e:
         st.error(f"Errore tecnico: {e}")
-    
+        
