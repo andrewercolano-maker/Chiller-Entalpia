@@ -102,27 +102,27 @@ if submit:
         ax.plot([h4, h5], [p_cond, p_evap], color='#2980b9', lw=4, zorder=5)
         ax.plot([h5, h1], [p_evap, p_evap], color='#3498db', lw=4, zorder=5)
 
-        # FASI CICLO (Distanziate)
+        # FASI CICLO
         f_style = dict(fontsize=9, fontweight='bold', color='#444444', ha='center')
         ax.text((h2 + h3_sat_vap)/2, p_cond * 1.18, f"SH SCARICO: {sh_sca:.1f}K", **f_style)
         ax.text((h4 + h3_sat_liq)/2, p_cond * 1.18, f"SUBCOOL: {subcool:.1f}K", **f_style)
         ax.text((h1 + h5_sat_vap)/2, p_evap * 0.72, f"SH ASPIRAZIONE: {sh_asp:.1f}K", **f_style)
 
-        # BOX DATI (Staccati e senza frecce)
+        # BOX DATI
         b_style = dict(boxstyle="round,pad=0.3", fc="white", ec="#2c3e50", lw=0.8, alpha=0.9, fontsize=8)
-        ax.text(h1 + 20, p_evap * 0.85, f"1. ASPIRAZIONE\n{t_asp:.1f}°C / {p_evap:.1f} kPa", **b_style)
-        ax.text(h2 + 20, p_cond * 1.30, f"2. SCARICO\n{t_scarico:.1f}°C / {p_cond:.1f} kPa", **b_style)
-        ax.text(h4 - 20, p_cond * 1.30, f"4. LIQUIDO\n{(t_sat_cond_calc-subcool):.1f}°C / {p_cond:.1f} kPa", ha='right', **b_style)
-        ax.text(h5 - 20, p_evap * 0.85, f"5. INGRESSO\n{t_sat_evap_calc:.1f}°C / {p_evap:.1f} kPa", ha='right', **b_style)
+        ax.text(h1 + 20, p_evap * 0.85, f"1. ASPIRAZIONE\n{t_asp:.1f}°C / {p_evap:.1f} kPa", bbox=b_style)
+        ax.text(h2 + 20, p_cond * 1.30, f"2. SCARICO\n{t_scarico:.1f}°C / {p_cond:.1f} kPa", bbox=b_style)
+        ax.text(h4 - 20, p_cond * 1.30, f"4. LIQUIDO\n{(t_sat_cond_calc-subcool):.1f}°C / {p_cond:.1f} kPa", ha='right', bbox=b_style)
+        ax.text(h5 - 20, p_evap * 0.85, f"5. INGRESSO\n{t_sat_evap_calc:.1f}°C / {p_evap:.1f} kPa", ha='right', bbox=b_style)
 
-        # APPROACH
+        # APPROACH - CORRETTO
         p_h2o = PropsSI('P', 'T', t_acqua_out + 273.15, 'Q', 0.5, gas) / 1000
         ax.axhline(y=p_h2o, color='#27ae60', linestyle='--', lw=1.5, alpha=0.6)
         p_min, p_max = sorted([p_evap, p_h2o]) if modalita == "Chiller (Raffreddamento)" else sorted([p_cond, p_h2o])
         ax.axhspan(p_min, p_max, color='#2ecc71', alpha=0.2)
         
         h_center = (min(h_liq) + max(h_vap))/2
-        # CORREZIONE: boxstyle spostato correttamente dentro bbox
+        # QUI ERA L'ERRORE: boxstyle deve stare dentro bbox
         ax.text(h_center, (p_min * p_max)**0.5, f"APPROACH: {approach:.1f} K", 
                 color='#1e8449', fontweight='bold', fontsize=10, ha='center', va='center',
                 bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', boxstyle='round,pad=0.2'))
@@ -135,7 +135,7 @@ if submit:
         
         st.pyplot(fig)
 
-        # --- RISULTATI ESTERNI (METRICHE) ---
+        # RISULTATI ESTERNI
         st.divider()
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Flash Gas", f"{x5*100:.1f} %")
