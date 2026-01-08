@@ -6,7 +6,7 @@ import matplotlib.ticker as ticker
 
 st.set_page_config(page_title="Chiller & HP Diagnostic Pro", layout="wide")
 
-st.title("❄️🔥 Analisi Termodinamica")
+st.title("❄️🔥 Analisi Termodinamica Professionale")
 
 # --- SIDEBAR: INPUT CON REGOLE DI STIMA ---
 with st.sidebar:
@@ -122,7 +122,7 @@ if submit:
         ax.axhspan(p_min, p_max, color='#2ecc71', alpha=0.2)
         
         h_center = (min(h_liq) + max(h_vap))/2
-        # CORREZIONE ERRORE boxstyle: inserito correttamente dentro bbox
+        # CORREZIONE: boxstyle spostato correttamente dentro bbox
         ax.text(h_center, (p_min * p_max)**0.5, f"APPROACH: {approach:.1f} K", 
                 color='#1e8449', fontweight='bold', fontsize=10, ha='center', va='center',
                 bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', boxstyle='round,pad=0.2'))
