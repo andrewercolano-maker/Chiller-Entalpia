@@ -78,15 +78,12 @@ if submit:
         
         ax.plot(h_liq, p_sat, color='#2c3e50', lw=2, zorder=3)
         ax.plot(h_vap, p_sat, color='#2c3e50', lw=2, zorder=3)
-
-        # Zone Blu/Rossa
         ax.fill_betweenx(p_sat, 0, h_liq, color='blue', alpha=0.03)
         ax.fill_betweenx(p_sat, h_vap, h_vap.max()+300, color='red', alpha=0.03)
 
-        # Nome Gas
         ax.text(0.02, 0.96, f"GAS: {gas}", transform=ax.transAxes, fontsize=12, fontweight='bold', bbox=dict(facecolor='white', alpha=0.8))
 
-        # Isoterme di sfondo
+        # Isoterme
         p_iso_range = np.logspace(np.log10(50), np.log10(p_crit*1.5), 50)
         for temp in range(-20, int(t_crit)+40, 20):
             T_kelvin = temp + 273.15
@@ -102,26 +99,28 @@ if submit:
         ax.plot([h4, h5], [p_cond, p_evap], color='#2980b9', lw=4, zorder=10)
         ax.plot([h5, h1], [p_evap, p_evap], color='#3498db', lw=4, zorder=10)
 
-        # Etichette Fasi (SH e Subcool)
-        f_style = dict(fontsize=9, fontweight='bold', color='#444444', ha='center')
-        ax.text((h2 + h3_sat_vap)/2, p_cond * 1.15, f"SH SCARICO: {sh_sca:.1f}K", **f_style)
-        ax.text((h4 + h3_sat_liq)/2, p_cond * 1.15, f"SUBCOOL: {subcool:.1f}K", **f_style)
-        ax.text((h1 + h5_sat_vap)/2, p_evap * 0.75, f"SH ASPIRAZIONE: {sh_asp:.1f}K", **f_style)
+        # --- SOLUZIONE SOVRAPPOSIZIONE TESTI ---
+        t_style = dict(fontsize=8, fontweight='bold', color='#444444', ha='center', 
+                       bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', boxstyle='round,pad=0.1'))
+        
+        ax.text((h2 + h3_sat_vap)/2, p_cond * 1.08, f"SH SCARICO: {sh_sca:.1f}K", **t_style)
+        ax.text((h4 + h3_sat_liq)/2, p_cond * 1.08, f"SUBCOOL: {subcool:.1f}K", **t_style)
+        ax.text((h1 + h5_sat_vap)/2, p_evap * 0.88, f"SH ASPIRAZIONE: {sh_asp:.1f}K", **t_style)
 
-        # Box Dati
+        # Box Dati Punti
         b_style = dict(boxstyle="round,pad=0.3", fc="white", ec="#2c3e50", lw=0.8, alpha=0.9)
-        ax.text(h1 + 10, p_evap * 0.8, f"1. ASP\n{t_asp:.1f}°C", bbox=b_style, fontsize=8)
-        ax.text(h2 + 10, p_cond * 1.25, f"2. SCA\n{t_scarico:.1f}°C", bbox=b_style, fontsize=8)
-        ax.text(h4 - 10, p_cond * 1.25, f"4. LIQ\n{(t_sat_cond_calc-subcool):.1f}°C", ha='right', bbox=b_style, fontsize=8)
-        ax.text(h5 - 10, p_evap * 0.8, f"5. INGR\n{t_sat_evap_calc:.1f}°C", ha='right', bbox=b_style, fontsize=8)
+        ax.text(h1 + 10, p_evap * 0.7, f"1. ASP\n{t_asp:.1f}°C", bbox=b_style, fontsize=8)
+        ax.text(h2 + 10, p_cond * 1.35, f"2. SCA\n{t_scarico:.1f}°C", bbox=b_style, fontsize=8)
+        ax.text(h4 - 10, p_cond * 1.35, f"4. LIQ\n{(t_sat_cond_calc-subcool):.1f}°C", ha='right', bbox=b_style, fontsize=8)
+        ax.text(h5 - 10, p_evap * 0.7, f"5. INGR\n{t_sat_evap_calc:.1f}°C", ha='right', bbox=b_style, fontsize=8)
 
-        # Fascia Verde Approach
+        # Approach
         p_h2o = PropsSI('P', 'T', t_acqua_out + 273.15, 'Q', 0.5, gas) / 1000
         p_min_app, p_max_app = sorted([p_evap, p_h2o]) if modalita == "Chiller (Raffreddamento)" else sorted([p_cond, p_h2o])
         ax.axhspan(p_min_app, p_max_app, color='#2ecc71', alpha=0.2, zorder=1)
         ax.text((h1+h5)/2, (p_min_app*p_max_app)**0.5, f"APPROACH: {approach:.1f} K", 
                 ha='center', va='center', fontweight='bold', color='#1e8449', fontsize=9,
-                bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', boxstyle='round,pad=0.2'))
+                bbox=dict(facecolor='white', alpha=0.8, edgecolor='none', boxstyle='round,pad=0.2'))
 
         # Formattazione
         ax.set_yscale('log')
@@ -134,7 +133,7 @@ if submit:
         
         st.pyplot(fig)
 
-        # --- RISULTATI ESTERNI (Inalterati) ---
+        # Risultati Esterni
         st.divider()
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Flash Gas", f"{x5*100:.1f} %")
