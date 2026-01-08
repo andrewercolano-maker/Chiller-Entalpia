@@ -51,7 +51,7 @@ with st.sidebar:
 
 if submit:
     try:
-        # Calcoli Punti Ciclo (Inalterati)
+        # Calcoli Punti Ciclo
         h1 = PropsSI('H', 'P', p_evap*1000, 'T', t_asp+273.15, gas)/1000
         h2 = PropsSI('H', 'P', p_cond*1000, 'T', t_scarico+273.15, gas)/1000
         h4 = PropsSI('H', 'P', p_cond*1000, 'T', (t_sat_cond_calc+273.15) - subcool, gas)/1000
@@ -60,7 +60,7 @@ if submit:
         sh_asp = t_asp - t_sat_evap_calc
         approach = abs(t_acqua_out - (t_sat_evap_calc if modalita == "Chiller (Raffreddamento)" else t_sat_cond_calc))
 
-        # --- GRAFICO CON CAMPANA REALE ---
+        # --- GRAFICO CON CAMPANA REALE (CORRETTO) ---
         fig, ax = plt.subplots(figsize=(14, 9))
         
         t_crit = PropsSI('Tcrit', gas)
@@ -72,42 +72,49 @@ if submit:
         h_vap = np.array([PropsSI('H', 'T', t, 'Q', 1, gas)/1000 for t in T_range])
         p_sat = np.array([PropsSI('P', 'T', t, 'Q', 0, gas)/1000 for t in T_range])
         
-        # Disegno curva di saturazione
         ax.plot(h_liq, p_sat, color='#2c3e50', lw=2, zorder=3)
         ax.plot(h_vap, p_sat, color='#2c3e50', lw=2, zorder=3)
 
-        # 2. Aggiunta Isoterme (Linee di temperatura come nel grafico reale)
-        for temp in range(-20, int(t_crit), 20):
+        # 2. Aggiunta Isoterme (MODIFICATO: Calcolo stabile H = f(P,T))
+        p_iso_range = np.logspace(np.log10(50), np.log10(p_crit*1.5), 50)
+        for temp in range(-20, int(t_crit)+40, 20):
             T_kelvin = temp + 273.15
-            h_iso = np.linspace(min(h_liq)-50, max(h_vap)+200, 100)
-            p_iso = [PropsSI('P', 'T', T_kelvin, 'H', h*1000, gas)/1000 for h in h_iso]
-            ax.plot(h_iso, p_iso, color='gray', lw=0.5, alpha=0.3)
+            h_iso = []
+            for p in p_iso_range:
+                try:
+                    h_val = PropsSI('H', 'T', T_kelvin, 'P', p*1000, gas)/1000
+                    h_iso.append(h_val)
+                except:
+                    h_iso.append(np.nan)
+            ax.plot(h_iso, p_iso_range, color='gray', lw=0.5, alpha=0.3)
 
-        # 3. Disegno Ciclo (Inalterato)
+        # 3. Disegno Ciclo
         ax.plot(np.linspace(h1, h2, 20), np.linspace(p_evap, p_cond, 20), color='#c0392b', lw=4, zorder=10)
         ax.plot([h2, h4], [p_cond, p_cond], color='#e74c3c', lw=4, zorder=10)
         ax.plot([h4, h5], [p_cond, p_evap], color='#2980b9', lw=4, zorder=10)
         ax.plot([h5, h1], [p_evap, p_evap], color='#3498db', lw=4, zorder=10)
 
-        # Box Dati e Finiture (Inalterate)
+        # Box Dati
         b_style = dict(boxstyle="round,pad=0.3", fc="white", ec="#2c3e50", lw=0.8, alpha=0.9)
         ax.text(h1 + 10, p_evap * 0.8, f"1. ASP\n{t_asp:.1f}°C", bbox=b_style, fontsize=8)
         ax.text(h2 + 10, p_cond * 1.2, f"2. SCA\n{t_scarico:.1f}°C", bbox=b_style, fontsize=8)
         ax.text(h4 - 10, p_cond * 1.2, f"4. LIQ\n{(t_sat_cond_calc-subcool):.1f}°C", ha='right', bbox=b_style, fontsize=8)
         ax.text(h5 - 10, p_evap * 0.8, f"5. INGR\n{t_sat_evap_calc:.1f}°C", ha='right', bbox=b_style, fontsize=8)
 
-        # Formattazione Assi (Stile Professionale Reale)
+        # Formattazione Assi
         ax.set_yscale('log')
         ax.yaxis.set_major_formatter(ticker.ScalarFormatter())
         ax.grid(True, which="both", alpha=0.1, color='gray')
         
-        # Limiti per Aspect Ratio Reale
-        ax.set_xlim(PropsSI('H', 'T', 273.15, 'Q', 0, gas)/1000 - 150, PropsSI('H', 'T', 273.15, 'Q', 1, gas)/1000 + 250)
+        # Limiti dinamici basati sul gas per Aspect Ratio reale
+        h_min_plot = PropsSI('H', 'T', 253.15, 'Q', 0, gas)/1000 - 50
+        h_max_plot = PropsSI('H', 'T', t_crit-10, 'Q', 1, gas)/1000 + 150
+        ax.set_xlim(h_min_plot, h_max_plot)
         ax.set_ylim(50, p_crit * 1.5) 
         
         st.pyplot(fig)
 
-        # --- METRICHE (Inalterate) ---
+        # Metriche
         st.divider()
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Flash Gas", f"{x5*100:.1f} %")
