@@ -21,7 +21,7 @@ with st.sidebar:
     p_cond = st.number_input("Pres. Condensazione (kPaA)", value=801.4)
     
     st.divider()
-    # Logica Saturazioni per stime
+    # Logica Saturazioni per stime (Verificata per miscele)
     t_sat_evap_calc = PropsSI('T', 'P', p_evap*1000, 'Q', 1, gas) - 273.15
     t_sat_cond_calc = PropsSI('T', 'P', p_cond*1000, 'Q', 0, gas) - 273.15
 
@@ -94,7 +94,7 @@ if submit:
 
         ax.text(0.02, 0.96, f"GAS: {gas}", transform=ax.transAxes, fontsize=12, fontweight='bold', bbox=dict(facecolor='white', alpha=0.8))
 
-        # Ciclo Curvilineo
+        # Ciclo Curvilineo (Isoentropica approssimata)
         p_comp = np.linspace(p_evap, p_cond, 20)
         h_comp = np.linspace(h1, h2, 20)
         ax.plot(h_comp, p_comp, color='#c0392b', lw=4, zorder=5)
@@ -108,34 +108,37 @@ if submit:
         ax.text((h4 + h3_sat_liq)/2, p_cond * 1.18, f"SUBCOOL: {subcool:.1f}K", **f_style)
         ax.text((h1 + h5_sat_vap)/2, p_evap * 0.72, f"SH ASPIRAZIONE: {sh_asp:.1f}K", **f_style)
 
-        # BOX DATI
-        b_style = dict(boxstyle="round,pad=0.3", fc="white", ec="#2c3e50", lw=0.8, alpha=0.9, fontsize=8)
-        ax.text(h1 + 20, p_evap * 0.85, f"1. ASPIRAZIONE\n{t_asp:.1f}°C / {p_evap:.1f} kPa", bbox=b_style)
-        ax.text(h2 + 20, p_cond * 1.30, f"2. SCARICO\n{t_scarico:.1f}°C / {p_cond:.1f} kPa", bbox=b_style)
-        ax.text(h4 - 20, p_cond * 1.30, f"4. LIQUIDO\n{(t_sat_cond_calc-subcool):.1f}°C / {p_cond:.1f} kPa", ha='right', bbox=b_style)
-        ax.text(h5 - 20, p_evap * 0.85, f"5. INGRESSO\n{t_sat_evap_calc:.1f}°C / {p_evap:.1f} kPa", ha='right', bbox=b_style)
+        # BOX DATI (Verificati per non generare errori FancyBboxPatch)
+        b_style = dict(boxstyle="round,pad=0.3", fc="white", ec="#2c3e50", lw=0.8, alpha=0.9)
+        
+        ax.text(h1 + 20, p_evap * 0.85, f"1. ASPIRAZIONE\n{t_asp:.1f}°C / {p_evap:.1f} kPa", bbox=b_style, fontsize=8)
+        ax.text(h2 + 20, p_cond * 1.30, f"2. SCARICO\n{t_scarico:.1f}°C / {p_cond:.1f} kPa", bbox=b_style, fontsize=8)
+        ax.text(h4 - 20, p_cond * 1.30, f"4. LIQUIDO\n{(t_sat_cond_calc-subcool):.1f}°C / {p_cond:.1f} kPa", ha='right', bbox=b_style, fontsize=8)
+        ax.text(h5 - 20, p_evap * 0.85, f"5. INGRESSO\n{t_sat_evap_calc:.1f}°C / {p_evap:.1f} kPa", ha='right', bbox=b_style, fontsize=8)
 
-        # APPROACH - CORRETTO
+        # APPROACH
         p_h2o = PropsSI('P', 'T', t_acqua_out + 273.15, 'Q', 0.5, gas) / 1000
         ax.axhline(y=p_h2o, color='#27ae60', linestyle='--', lw=1.5, alpha=0.6)
         p_min, p_max = sorted([p_evap, p_h2o]) if modalita == "Chiller (Raffreddamento)" else sorted([p_cond, p_h2o])
         ax.axhspan(p_min, p_max, color='#2ecc71', alpha=0.2)
         
         h_center = (min(h_liq) + max(h_vap))/2
-        # QUI ERA L'ERRORE: boxstyle deve stare dentro bbox
         ax.text(h_center, (p_min * p_max)**0.5, f"APPROACH: {approach:.1f} K", 
                 color='#1e8449', fontweight='bold', fontsize=10, ha='center', va='center',
                 bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', boxstyle='round,pad=0.2'))
 
+        # SETTAGGI ASSI
         ax.set_yscale('log')
         ax.yaxis.set_major_formatter(ticker.ScalarFormatter())
         ax.grid(True, which="both", alpha=0.05)
+        
+        # Margini ampi per la massima leggibilità
         ax.set_xlim(min(h_liq)-80, max(h_vap)+180)
-        ax.set_ylim(p_evap*0.4, p_cond*4.0) 
+        ax.set_ylim(p_evap*0.4, p_cond*4.5) 
         
         st.pyplot(fig)
 
-        # RISULTATI ESTERNI
+        # --- RISULTATI ESTERNI (METRICHE) ---
         st.divider()
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Flash Gas", f"{x5*100:.1f} %")
