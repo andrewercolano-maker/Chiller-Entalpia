@@ -6,7 +6,7 @@ import matplotlib.ticker as ticker
 
 st.set_page_config(page_title="Chiller & HP Diagnostic Pro", layout="wide")
 
-st.title("❄️🔥 Analisi Termodinamica )
+st.title("❄️🔥 Analisi Termodinamica")
 
 # --- SIDEBAR: INPUT ---
 with st.sidebar:
